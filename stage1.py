@@ -20,9 +20,8 @@ from Models.disentangled_attention import LSTMDisentangledAttention
 from Models.mlp import MLP, MMLP
 from Models.mil import MILModel, ModifiedMILModel
 from Utils.utils import seed_everything, process_feat, seg2frame, save_predictions
-from Losses.mil import MIL
+from Losses.losses import MIL
 from DataLoaders.dataloaders import Normal_Loader, Anomaly_Loader
-
 
 seed_everything(40)
 # THE RGB MODELS AND THEIR FEATURE SIZES:

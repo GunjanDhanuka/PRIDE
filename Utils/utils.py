@@ -71,3 +71,15 @@ def save_predictions(epoch, model, anomaly_pred_loader, normal_pred_loader):
             pred_dict[video_name] = score
 
     return pred_dict
+
+def preprocess_score(scores_list, k=3, average=True):
+    if average:
+        average_filter = np.ones(k)
+        average_filter /= k
+        pad_scores = [0] * (k // 2) + scores_list + [0] * (k // 2)
+        avg_scores = np.convolve(pad_scores, average_filter, "valid")
+    else:
+        avg_scores = np.array(scores_list)
+    min_val, max_val = avg_scores.min(), avg_scores.max()
+    avg_scores = (avg_scores - min_val) / (max_val - min_val)
+    return avg_scores
