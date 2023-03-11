@@ -195,7 +195,7 @@ def main() -> None:
         t_model = LSTMDisentangledAttention()
 
         criterion = Binloss
-        model = MILModel(mlp_rgb, mlp_flow, mil_model, t_model, criterion, device).to(
+        model = MILModel(mlp_rgb, mlp_flow, mil_model, t_model, criterion, device, stage2=True).to(
             device
         )
 

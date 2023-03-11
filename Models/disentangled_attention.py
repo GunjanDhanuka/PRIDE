@@ -1,7 +1,7 @@
 from transformers import DebertaConfig, DebertaModel
 import torch
 import torch.nn as nn
-from dltm import GRUModel, LSTMModel, RNNModel
+from .dltm import GRUModel, LSTMModel, RNNModel
 
 
 class DisentangledAttention(nn.Module):

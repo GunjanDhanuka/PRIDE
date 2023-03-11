@@ -27,11 +27,11 @@ class Normal_Loader(Dataset):
         self.flow_dir = os.path.join(self.path, "all_flows")
         # self.vit_patch_dir  = "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_features_timesformer"
         if self.is_train == 1:
-            data_list = "../files/train_normal.txt"
+            data_list = "files/train_normal.txt"
             with open(data_list, "r") as f:
                 self.data_list = f.readlines()
         else:
-            data_list = "../files/test_normalv2.txt"
+            data_list = "files/test_normalv2.txt"
             with open(data_list, "r") as f:
                 self.data_list = f.readlines()
             # self.data_list = self.data_list[:-10]
@@ -113,11 +113,11 @@ class Anomaly_Loader(Dataset):
         self.flow_dir = os.path.join(self.path, "all_flows")
         # self.vit_patch_dir  = "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_features_timesformer"
         if self.is_train == 1:
-            data_list = "../files/train_anomaly.txt"
+            data_list = "files/train_anomaly.txt"
             with open(data_list, "r") as f:
                 self.data_list = f.readlines()
         else:
-            data_list = "../files/test_anomalyv2.txt"
+            data_list = "files/test_anomalyv2.txt"
             with open(data_list, "r") as f:
                 self.data_list = f.readlines()
         if self.stage2:
