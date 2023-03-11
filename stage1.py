@@ -11,7 +11,10 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from typing import NamedTuple
 import pickle
-from tqdm import tqdm
+import hydra
+from hydra.utils import get_original_cwd, to_absolute_path
+from omegaconf import DictConfig, OmegaConf
+from tqdm.auto import tqdm
 import warnings
 
 warnings.simplefilter("ignore")
@@ -38,38 +41,6 @@ class RGBModel(NamedTuple):
     output_size: int
     need_process: bool
 
-
-i3d = RGBModel(
-    "i3d",
-    "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_and_Shanghai/UCF-Crime/all_rgbs",
-    1024,
-    False,
-)
-
-swin = RGBModel(
-    "swin",
-    "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_video_swin_features",
-    1024,
-    False,
-)
-
-s3d = RGBModel(
-    "s3d", "/local/scratch/c_adabouei/video_analysis/dataset/UCF_Crime/S3D", 1024, True
-)
-
-timesformer_large = RGBModel(
-    "timesformer_large",
-    "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_features_timesformer_large",
-    768,
-    False,
-)
-
-timesformer_small = RGBModel(
-    "transformer_small",
-    "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_features_timesformer",
-    768,
-    False,
-)
 
 # rgb_models = [i3d, swin, s3d, timesformer_large, timesformer_small]
 
@@ -124,7 +95,28 @@ def test(epoch, model, anomaly_test_loader, normal_test_loader):
     return auc
 
 
-def main() -> None:
+@hydra.main(config_path="config", config_name="config")
+def main(cfg: DictConfig) -> None:
+    base_path = get_original_cwd()
+    os.chdir(base_path)
+    print(OmegaConf.to_yaml(cfg))
+
+    i3d = RGBModel(
+        "i3d",
+        cfg.dataset.i3d_path,
+        1024,
+        False,
+    )
+
+    swin = RGBModel(
+        "swin",
+        cfg.dataset.swin_path,
+        1024,
+        False,
+    )
+
+    s3d = RGBModel("s3d", cfg.dataset.s3d_path, 1024, True)
+
     rgb_models_all = [[i3d, swin, s3d]]
     # rgb_models_all = [[i3d, swin, s3d]]
     for rgb_models in rgb_models_all:
@@ -137,13 +129,15 @@ def main() -> None:
         if mlp_size <= 1024:
             mlp_hidden_dim = 512
 
-        normal_train_dataset = Normal_Loader(rgb_models, is_train=1)
-        normal_test_dataset = Normal_Loader(rgb_models, is_train=0)
+        data_path = cfg.dataset.path
+        normal_train_dataset = Normal_Loader(rgb_models, is_train=1, path=data_path)
+        normal_test_dataset = Normal_Loader(rgb_models, is_train=0, path=data_path)
 
-        anomaly_train_dataset = Anomaly_Loader(rgb_models, is_train=1)
-        anomaly_test_dataset = Anomaly_Loader(rgb_models, is_train=0)
-        TRAIN_BATCH_SIZE = 30
-        VALID_BATCH_SIZE = 1
+        anomaly_train_dataset = Anomaly_Loader(rgb_models, is_train=1, path=data_path)
+        anomaly_test_dataset = Anomaly_Loader(rgb_models, is_train=0, path=data_path)
+
+        TRAIN_BATCH_SIZE = cfg.stage1.train_batch_size
+        VALID_BATCH_SIZE = cfg.stage1.valid_batch_size
         normal_train_loader = DataLoader(
             normal_train_dataset,
             batch_size=TRAIN_BATCH_SIZE,
@@ -184,7 +178,7 @@ def main() -> None:
             num_workers=4,
         )
 
-        device = "cuda:7"
+        device = cfg.stage1.device
         mlp_rgb = MLP(
             input_dim=mlp_size, hidden_dim=mlp_hidden_dim, output_dim=mlp_output_dim
         )
@@ -200,16 +194,18 @@ def main() -> None:
         )
 
         params = [
-            {"params": model.mlp_rgb.parameters(), "lr": 1e-3},
-            {"params": model.mlp_flow.parameters(), "lr": 1e-3},
+            {"params": model.mlp_rgb.parameters(), "lr": cfg.stage1.lr_mlp_rgb},
+            {"params": model.mlp_flow.parameters(), "lr": cfg.stage1.lr_mlp_flow},
             {"params": model.mil_model.parameters()},
-            {"params": model.t_model.parameters(), "lr": 1e-4},
+            {"params": model.t_model.parameters(), "lr": cfg.stage1.lr_t_model},
         ]
-        optimizer = torch.optim.Adagrad(params, lr=1e-3, weight_decay=0.001)
+        optimizer = torch.optim.Adagrad(
+            params, lr=cfg.stage1.lr, weight_decay=cfg.stage1.weight_decay
+        )
 
         best_auc = 0.5
         auc_scores = []
-        n_epochs = 100
+        n_epochs = cfg.stage1.epochs
         pbar_main = tqdm(range(0, n_epochs))
         for epoch in pbar_main:
             epoch_train_loss = train(

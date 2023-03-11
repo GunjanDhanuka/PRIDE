@@ -1,6 +1,7 @@
 import torch
 import torch.nn.functional as F
 
+
 def MIL(y_pred, batch_size, device, is_transformer=0):
     loss = torch.tensor(0.0).to(device)
     loss_intra = torch.tensor(0.0).to(device)
@@ -26,6 +27,7 @@ def MIL(y_pred, batch_size, device, is_transformer=0):
 
     return loss
 
+
 def Binloss(
     y_pred, batch_size, scores_anomaly, scores_normal, device, is_transformer=0
 ):
@@ -48,7 +50,7 @@ def Binloss(
     y_gt = torch.cat([y_anomaly_gt, y_normal_gt], dim=0)
 
     loss = F.binary_cross_entropy(y_pred, y_gt)
-    print(loss.shape)
+    # print(loss.shape)
     sparsity = torch.sum(y_anomaly, dim=-1).mean() * 0.00008
     smooth = (
         torch.sum((y_anomaly[:, :31] - y_anomaly[:, 1:32]) ** 2, dim=-1).mean()
@@ -58,6 +60,7 @@ def Binloss(
     loss = loss + sparsity + smooth
 
     return loss
+
 
 def Focalloss(
     y_pred,
@@ -140,6 +143,6 @@ def KLDloss(
         torch.sum((y_anomaly[:, :31] - y_anomaly[:, 1:32]) ** 2, dim=-1).mean()
         * 0.00008
     )
-    print(loss.shape)
+    # print(loss.shape)
     loss = loss + sparsity + smooth
     return loss

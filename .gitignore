@@ -128,6 +128,5 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
-PretrainedModels/
-CLRModels/
-pseudo_labels/i3d_swin_s3d.pickle
+outputs/
+files/i3d_swin_s3d.pickle

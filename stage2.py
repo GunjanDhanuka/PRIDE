@@ -11,8 +11,11 @@ import torch.nn.functional as F
 import matplotlib.pyplot as plt
 from typing import NamedTuple
 import pickle
-from tqdm import tqdm
+from tqdm.auto import tqdm
 import warnings
+import hydra
+from hydra.utils import get_original_cwd
+from omegaconf import DictConfig, OmegaConf
 
 warnings.simplefilter("ignore")
 
@@ -44,38 +47,6 @@ class RGBModel(NamedTuple):
     need_process: bool
 
 
-i3d = RGBModel(
-    "i3d",
-    "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_and_Shanghai/UCF-Crime/all_rgbs",
-    1024,
-    False,
-)
-
-swin = RGBModel(
-    "swin",
-    "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_video_swin_features",
-    1024,
-    False,
-)
-
-s3d = RGBModel(
-    "s3d", "/local/scratch/c_adabouei/video_analysis/dataset/UCF_Crime/S3D", 1024, True
-)
-
-timesformer_large = RGBModel(
-    "timesformer_large",
-    "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_features_timesformer_large",
-    768,
-    False,
-)
-
-timesformer_small = RGBModel(
-    "transformer_small",
-    "/local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_features_timesformer",
-    768,
-    False,
-)
-
 # rgb_models = [i3d, swin, s3d, timesformer_large, timesformer_small]
 seed_everything(40)
 
@@ -84,20 +55,22 @@ def train(epoch, model, normal_train_loader, anomaly_train_loader, optimizer):
     model.train()
 
     train_loss = 0
-    correct = 0
-    total = 0
     loader = zip(normal_train_loader, anomaly_train_loader)
-    for batch_idx, (normal_inputs, anomaly_inputs) in enumerate(loader, 1):
+    # add a progress bar with tqdm
+    pbar = tqdm(enumerate(loader, 1))
+
+    for batch_idx, (normal_inputs, anomaly_inputs) in pbar:
         loss = model(anomaly_inputs, normal_inputs)
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
         train_loss += loss.item()
-        print(
-            f"Processed [{batch_idx}]/[{min(len(normal_train_loader), len(anomaly_train_loader))}] MIL Loss : {loss.item():.4f}"
+        pbar.set_description(
+            f"Processed [{batch_idx}]/[{min(len(normal_train_loader), len(anomaly_train_loader))}] BCE Loss : {loss.item():.4f}"
         )
 
-    print("loss = {}".format(train_loss / len(normal_train_loader)))
+    pbar.clear()
+    pbar.write("loss = {}".format(train_loss / len(normal_train_loader)))
 
     return train_loss / len(normal_train_loader)
 
@@ -136,7 +109,28 @@ def test(epoch, model, anomaly_test_loader, normal_test_loader):
     return auc, pred_dict
 
 
-def main() -> None:
+@hydra.main(config_path="config", config_name="config")
+def main(cfg: DictConfig) -> None:
+    base_path = get_original_cwd()
+    os.chdir(base_path)
+    print(OmegaConf.to_yaml(cfg))
+
+    i3d = RGBModel(
+        "i3d",
+        cfg.dataset.i3d_path,
+        1024,
+        False,
+    )
+
+    swin = RGBModel(
+        "swin",
+        cfg.dataset.swin_path,
+        1024,
+        False,
+    )
+
+    s3d = RGBModel("s3d", cfg.dataset.s3d_path, 1024, True)
+
     rgb_models_all = [[i3d, swin, s3d]]
     # rgb_models_all = [[i3d, swin, s3d]]
     for rgb_models in rgb_models_all:
@@ -149,13 +143,21 @@ def main() -> None:
         if mlp_size <= 1024:
             mlp_hidden_dim = 512
 
-        normal_train_dataset = Normal_Loader(rgb_models, is_train=1, stage2=True)
-        normal_test_dataset = Normal_Loader(rgb_models, is_train=0, stage2=True)
+        normal_train_dataset = Normal_Loader(
+            rgb_models, is_train=1, stage2=True, path=cfg.dataset.path
+        )
+        normal_test_dataset = Normal_Loader(
+            rgb_models, is_train=0, stage2=True, path=cfg.dataset.path
+        )
 
-        anomaly_train_dataset = Anomaly_Loader(rgb_models, is_train=1, stage2=True)
-        anomaly_test_dataset = Anomaly_Loader(rgb_models, is_train=0, stage2=True)
-        TRAIN_BATCH_SIZE = 4
-        VALID_BATCH_SIZE = 1
+        anomaly_train_dataset = Anomaly_Loader(
+            rgb_models, is_train=1, stage2=True, path=cfg.dataset.path
+        )
+        anomaly_test_dataset = Anomaly_Loader(
+            rgb_models, is_train=0, stage2=True, path=cfg.dataset.path
+        )
+        TRAIN_BATCH_SIZE = cfg.stage2.train_batch_size
+        VALID_BATCH_SIZE = cfg.stage2.valid_batch_size
         normal_train_loader = DataLoader(
             normal_train_dataset,
             batch_size=TRAIN_BATCH_SIZE,
@@ -184,7 +186,7 @@ def main() -> None:
             num_workers=4,
         )
 
-        device = "cuda:7"
+        device = cfg.stage2.device
         mlp_rgb = MLP(
             input_dim=mlp_size, hidden_dim=mlp_hidden_dim, output_dim=mlp_output_dim
         )
@@ -195,24 +197,27 @@ def main() -> None:
         t_model = LSTMDisentangledAttention()
 
         criterion = Binloss
-        model = MILModel(mlp_rgb, mlp_flow, mil_model, t_model, criterion, device, stage2=True).to(
-            device
-        )
+        model = MILModel(
+            mlp_rgb, mlp_flow, mil_model, t_model, criterion, device, stage2=True
+        ).to(device)
 
         params = [
-            {"params": model.mlp_rgb.parameters(), "lr": 1e-3},
-            {"params": model.mlp_flow.parameters(), "lr": 1e-3},
+            {"params": model.mlp_rgb.parameters(), "lr": cfg.stage2.lr_mlp_rgb},
+            {"params": model.mlp_flow.parameters(), "lr": cfg.stage2.lr_mlp_flow},
             {"params": model.mil_model.parameters()},
-            {"params": model.t_model.parameters(), "lr": 1e-4},
+            {"params": model.t_model.parameters(), "lr": cfg.stage2.lr_t_model},
         ]
-        optimizer = torch.optim.Adagrad(params, lr=1e-3, weight_decay=0.001)
+        optimizer = torch.optim.Adagrad(
+            params, lr=cfg.stage2.lr, weight_decay=cfg.stage2.weight_decay
+        )
 
         # optimizer = torch.optim.AdamW(params , lr= 1e-3, weight_decay=0.001)
 
         best_auc = 0.5
         auc_scores = []
-        n_epochs = 2
-        for epoch in range(0, n_epochs):
+        n_epochs = cfg.stage2.epochs
+        pbar_main = tqdm(range(0, n_epochs))
+        for epoch in pbar_main:
             epoch_train_loss = train(
                 epoch, model, normal_train_loader, anomaly_train_loader, optimizer
             )
@@ -223,8 +228,8 @@ def main() -> None:
             if epoch_auc > best_auc:
                 best_auc = epoch_auc
                 best_pred_dict = pred_dict
-            print(f"The AUC SCORE is {epoch_auc:.4f}")
-            print(f"The BEST AUC SCORE for MIL Model is {best_auc:.4f}")
+            pbar_main.write(f"The AUC SCORE is {epoch_auc:.4f}")
+            pbar_main.write(f"The BEST AUC SCORE for MIL Model is {best_auc:.4f}")
         plt.plot(auc_scores)
         plt.xlabel("Epochs")
         plt.ylabel("AUC Score")

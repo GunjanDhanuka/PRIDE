@@ -36,7 +36,7 @@ class Normal_Loader(Dataset):
                 self.data_list = f.readlines()
             # self.data_list = self.data_list[:-10]
         if self.stage2:
-            with open("i3d_swin_s3d.pickle", "rb") as f:
+            with open("files/i3d_swin_s3d.pickle", "rb") as f:
                 score_dict = pickle.load(f)
             self.pseudo_labels = score_dict
 
@@ -121,7 +121,7 @@ class Anomaly_Loader(Dataset):
             with open(data_list, "r") as f:
                 self.data_list = f.readlines()
         if self.stage2:
-            with open("i3d_swin_s3d.pickle", "rb") as f:
+            with open("files/i3d_swin_s3d.pickle", "rb") as f:
                 score_dict = pickle.load(f)
             self.pseudo_labels = score_dict
 

@@ -72,6 +72,7 @@ def save_predictions(epoch, model, anomaly_pred_loader, normal_pred_loader):
 
     return pred_dict
 
+
 def preprocess_score(scores_list, k=3, average=True):
     if average:
         average_filter = np.ones(k)
