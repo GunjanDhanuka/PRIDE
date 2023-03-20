@@ -27,22 +27,12 @@ from Losses.losses import MIL
 from DataLoaders.dataloaders import Normal_Loader, Anomaly_Loader
 
 seed_everything(40)
-# THE RGB MODELS AND THEIR FEATURE SIZES:
-# 1. I3D - 1024
-# 2. SWIN - 1024
-# 3. S3D - 1024
-# 4. TIMESFORMER LARGE - 768
-# 5. TIMESFORMER SMALL - 768
-
 
 class RGBModel(NamedTuple):
     model_name: str
     data_path: str
     output_size: int
     need_process: bool
-
-
-# rgb_models = [i3d, swin, s3d, timesformer_large, timesformer_small]
 
 
 def train(epoch, model, normal_train_loader, anomaly_train_loader, optimizer):

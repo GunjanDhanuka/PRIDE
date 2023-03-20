@@ -1,10 +1,8 @@
 dataset:
-  path: /local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_and_Shanghai/UCF-Crime
-  i3d_path: /local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_and_Shanghai/UCF-Crime/all_rgbs
-  swin_path: /local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_video_swin_features
-  s3d_path: /local/scratch/c_adabouei/video_analysis/dataset/UCF_Crime/S3D
-  timesformer_large_path: /local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_features_timesformer_large
-  timesformer_small_path: /local/scratch/c_adabouei/video_analysis/video_anomaly_detection/UCF_Crime_features_timesformer
+  path: data/I3D
+  i3d_path: data/I3D/all_rgbs
+  swin_path: data/VideoSwin
+  s3d_path: data/S3D
 
 stage1:
   device: cuda:7

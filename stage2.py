@@ -46,8 +46,6 @@ class RGBModel(NamedTuple):
     output_size: int
     need_process: bool
 
-
-# rgb_models = [i3d, swin, s3d, timesformer_large, timesformer_small]
 seed_everything(40)
 
 def train(epoch, model, normal_train_loader, anomaly_train_loader, optimizer):
